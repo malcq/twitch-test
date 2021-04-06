@@ -1,209 +1,137 @@
-import Head from 'next/head'
+import { useState, useCallback, useEffect } from 'react';
+import Head from 'next/head';
+import styled from 'styled-components';
 
-export default function Home() {
+import axiosWrapper from '../utils/axios';
+import { getFavorites, addFavorite, unSetFavorites } from '../utils/favorites';
+import { getAllVideosService } from '../services/getAllVideos';
+import Video from '../components/Video';
+import Search from '../components/Search';
+
+
+export default function Home({access_token}) {
+  const [value, setValue] = useState('');
+  const [videos, setVideos] = useState([]);
+  const [favorites, setFavorites] = useState([]);
+
+  const handleChange = ({target: { value }}) => setValue(value);
+  const setFavorite = useCallback((id) => {
+    const video = videos.find(({_id}) => _id === id);
+    video.isFavorite = !video.isFavorite
+    
+    setVideos([ ...videos ])
+    if (favorites.find(favorite => favorite._id === video._id)) return;
+    addFavorite(video);
+    setFavorites([...favorites, { ...video }]);
+  },[videos]);
+
+  const unSetFavorite = useCallback((id) => {
+    if (!favorites.find(({ _id }) => _id === id)) return;
+    const filteredFavorites = unSetFavorites(id);
+    setFavorites(filteredFavorites);
+  },[favorites]);
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!value) {
+      setVideos([]);
+      return;
+    }
+    const videos = await getAllVideosService(
+      value,
+      access_token
+    );
+    const favorites = getFavorites();
+    const preparedVideos = videos.map(({_id, ...video}) => ({
+      _id,
+      ...video,
+      isFavorite: !!favorites.find(favorite => favorite === _id),
+    }));
+    setVideos(preparedVideos);
+  }
+
+  useEffect(() => {
+    if (process.browser) {
+      setFavorites(getFavorites());
+    }
+  },[]);
+
   return (
     <div className="container">
       <Head>
-        <title>Create Next App</title>
+        <title> Twitch videos</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <main>
-        <h1 className="title">
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
-        </h1>
+        <Search
+          value={value}
+          onChange={handleChange}
+          onSubmit={onSubmit}
+        />
+      {!!favorites.length 
+      && (
+        <>
+        <h2>Избранное</h2>
+        <List>
+          {favorites.map(video => 
+            <Video 
+              key={video._id}
+              {...video}
+              setFavorite={setFavorite}
+              unSetFavorite={unSetFavorite}
+            />)}
+        </List>
+        </>
+      )}
 
-        <p className="description">
-          Get started by editing <code>pages/index.js</code>
-        </p>
+      {!!videos.length 
+      && (
+        <>
+        <h2>Видео</h2>
+        <List>
+          {videos.map(video => 
+            <Video 
+              key={video._id}
+              {...video}
+              setFavorite={setFavorite}
+            />)}
+        </List>
+        </>
+      )}
 
-        <div className="grid">
-          <a href="https://nextjs.org/docs" className="card">
-            <h3>Documentation &rarr;</h3>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
-
-          <a href="https://nextjs.org/learn" className="card">
-            <h3>Learn &rarr;</h3>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/master/examples"
-            className="card"
-          >
-            <h3>Examples &rarr;</h3>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/import?filter=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className="card"
-          >
-            <h3>Deploy &rarr;</h3>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
-        </div>
       </main>
-
-      <footer>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <img src="/vercel.svg" alt="Vercel Logo" className="logo" />
-        </a>
-      </footer>
-
-      <style jsx>{`
-        .container {
-          min-height: 100vh;
-          padding: 0 0.5rem;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-        }
-
-        main {
-          padding: 5rem 0;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-        }
-
-        footer {
-          width: 100%;
-          height: 100px;
-          border-top: 1px solid #eaeaea;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        }
-
-        footer img {
-          margin-left: 0.5rem;
-        }
-
-        footer a {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        }
-
-        a {
-          color: inherit;
-          text-decoration: none;
-        }
-
-        .title a {
-          color: #0070f3;
-          text-decoration: none;
-        }
-
-        .title a:hover,
-        .title a:focus,
-        .title a:active {
-          text-decoration: underline;
-        }
-
-        .title {
-          margin: 0;
-          line-height: 1.15;
-          font-size: 4rem;
-        }
-
-        .title,
-        .description {
-          text-align: center;
-        }
-
-        .description {
-          line-height: 1.5;
-          font-size: 1.5rem;
-        }
-
-        code {
-          background: #fafafa;
-          border-radius: 5px;
-          padding: 0.75rem;
-          font-size: 1.1rem;
-          font-family: Menlo, Monaco, Lucida Console, Liberation Mono,
-            DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace;
-        }
-
-        .grid {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-wrap: wrap;
-
-          max-width: 800px;
-          margin-top: 3rem;
-        }
-
-        .card {
-          margin: 1rem;
-          flex-basis: 45%;
-          padding: 1.5rem;
-          text-align: left;
-          color: inherit;
-          text-decoration: none;
-          border: 1px solid #eaeaea;
-          border-radius: 10px;
-          transition: color 0.15s ease, border-color 0.15s ease;
-        }
-
-        .card:hover,
-        .card:focus,
-        .card:active {
-          color: #0070f3;
-          border-color: #0070f3;
-        }
-
-        .card h3 {
-          margin: 0 0 1rem 0;
-          font-size: 1.5rem;
-        }
-
-        .card p {
-          margin: 0;
-          font-size: 1.25rem;
-          line-height: 1.5;
-        }
-
-        .logo {
-          height: 1em;
-        }
-
-        @media (max-width: 600px) {
-          .grid {
-            width: 100%;
-            flex-direction: column;
-          }
-        }
-      `}</style>
-
       <style jsx global>{`
-        html,
         body {
-          padding: 0;
           margin: 0;
-          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto,
-            Oxygen, Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue,
-            sans-serif;
-        }
-
-        * {
-          box-sizing: border-box;
+          font-family: sans-serif;
         }
       `}</style>
     </div>
   )
+}
+
+const List = styled.ul`
+  display: flex;
+  flex-wrap: wrap;
+  padding-left: 0;
+`;
+
+export async function getStaticProps() {
+  const { clientId, secretKey } = process.env;
+  try {
+    const {data: { access_token }} = await axiosWrapper({
+      method: 'POST',
+      url: `https://id.twitch.tv/oauth2/token?client_id=${clientId}
+      &client_secret=${secretKey}&grant_type=client_credentials` 
+    })
+    return {
+      props: {
+        access_token
+      },
+    }
+  } catch (err) {
+    console.log(err, 'axiosWrapper err');
+    throw (err);
+  };
 }
